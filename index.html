@@ -10,133 +10,90 @@
             --bg-input: #40444b; --text-main: #dcddde; --text-muted: #72767d;
             --accent-blue: #5865f2; --accent-green: #3ba55d; --accent-red: #ed4245;
         }
-        body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; margin: 0; background: var(--bg-chat); height: 100dvh; display: flex; color: var(--text-main); overflow: hidden; }
+        body { font-family: sans-serif; margin: 0; background: var(--bg-chat); height: 100dvh; display: flex; color: var(--text-main); overflow: hidden; }
         
-        /* 認証・BAN画面 */
-        #auth-screen, #ban-screen { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; }
-        #auth-screen { background: var(--bg-darker); }
-        #ban-screen { background: #000; display: none; flex-direction: column; text-align: center; }
-        .auth-box { background: var(--bg-sidebar); padding: 32px; border-radius: 8px; width: 350px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        /* 認証画面 */
+        #auth-screen { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: var(--bg-darker); }
+        .auth-box { background: var(--bg-sidebar); padding: 32px; border-radius: 8px; width: 320px; text-align: center; }
         .auth-input { width: 100%; padding: 10px; margin: 10px 0; background: var(--bg-darker); border: 1px solid #222; color: white; border-radius: 4px; box-sizing: border-box; }
         
-        /* アイコン選択用 (絵文字スタイル) */
-        .icon-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 15px 0; }
+        /* アイコン選択 */
+        .icon-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 15px 0; }
         .icon-option { 
-            width: 45px; height: 45px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; 
-            display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.2s; background: #444;
+            width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; 
+            display: flex; align-items: center; justify-content: center; font-size: 20px; background: #444;
         }
-        .icon-option:hover { transform: scale(1.1); }
         .icon-option.selected { border-color: var(--accent-blue); background: #555; }
 
-        /* メインレイアウト */
-        .sidebar { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; border-right: 1px solid var(--bg-darker); }
-        .channel-list { flex: 1; padding: 10px; }
-        .section-label { padding: 10px; font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; }
-        .channel-item { padding: 8px; margin: 2px 0; border-radius: 4px; cursor: pointer; display: flex; align-items: center; font-size: 14px; }
-        .channel-item.active { background: #4f545c; color: white; }
-        .channel-item::before { content: "#"; margin-right: 8px; color: var(--text-muted); }
-
-        main { flex: 1; display: flex; flex-direction: column; }
-        header { height: 48px; padding: 0 15px; border-bottom: 1px solid var(--bg-darker); display: flex; align-items: center; font-weight: bold; }
+        /* メイン画面 */
+        .sidebar { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; }
+        main { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); }
+        header { height: 48px; padding: 0 15px; border-bottom: 1px solid #222; display: flex; align-items: center; font-weight: bold; }
         
-        #messages { flex: 1; overflow-y: auto; padding: 10px 0; }
-        .msg-row { display: flex; padding: 8px 20px; position: relative; }
-        .msg-row:hover { background: rgba(0,0,0,0.05); }
-        .avatar { 
-            width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; flex-shrink: 0; 
-            display: flex; align-items: center; justify-content: center; font-size: 22px; background: #4f545c;
-        }
-        .msg-content { flex: 1; }
-        .msg-header { display: flex; align-items: center; gap: 8px; }
-        .user-name { font-weight: bold; color: white; }
-        .msg-time { font-size: 11px; color: var(--text-muted); }
-        .delete-btn { font-size: 11px; color: var(--accent-red); cursor: pointer; opacity: 0; margin-left: 10px; }
-        .msg-row:hover .delete-btn { opacity: 1; }
-
-        .typing-indicator { height: 18px; font-size: 12px; color: var(--text-muted); padding-left: 20px; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px 0; }
+        .msg-row { display: flex; padding: 8px 20px; }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; background: #4f545c; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+        
         .input-area { padding: 0 20px 20px; }
         .input-box { background: var(--bg-input); border-radius: 8px; padding: 10px 15px; }
-        #chat-input { width: 100%; background: transparent; border: none; color: white; outline: none; }
-        
-        .member-sidebar { width: 240px; background: var(--bg-sidebar); border-left: 1px solid var(--bg-darker); }
-        .admin-tag { font-size: 10px; background: var(--accent-red); color: white; padding: 1px 4px; border-radius: 3px; font-weight: bold; margin-left: 5px; }
+        #chat-input { width: 100%; background: transparent; border: none; color: white; outline: none; font-size: 16px; }
 
+        /* 設定モーダル */
         #settings-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 5000; align-items: center; justify-content: center; }
-        .modal-card { background: var(--bg-sidebar); width: 350px; border-radius: 8px; padding: 25px; }
-        .modal-btn { width: 100%; padding: 10px; margin: 8px 0; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; }
+        .modal-card { background: var(--bg-sidebar); width: 320px; border-radius: 8px; padding: 20px; }
+        .modal-btn { width: 100%; padding: 10px; margin: 5px 0; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="auth-screen">
         <div class="auth-box">
-            <h2 id="auth-title">おかえりなさい！</h2>
-            <div id="auth-error" style="color:var(--accent-red); font-size:12px; margin-bottom:10px;"></div>
-            <input type="text" id="auth-user" class="auth-input" placeholder="ユーザー名">
+            <h2 id="auth-title">Show-Chat</h2>
+            <div id="auth-error" style="color:var(--accent-red); font-size:12px;"></div>
+            <input type="text" id="auth-user" class="auth-input" placeholder="名前">
             <input type="password" id="auth-pass" class="auth-input" placeholder="パスワード">
             <div id="signup-only" style="display:none;">
-                <p style="font-size:11px; color:var(--text-muted); margin: 5px 0;">アイコン（絵文字）を選択:</p>
+                <p style="font-size:11px; color:var(--text-muted);">アイコンを選んでね</p>
                 <div class="icon-grid" id="signup-icon-grid"></div>
             </div>
             <button class="modal-btn" style="background:var(--accent-blue);" id="btn-login">ログイン</button>
-            <p style="font-size:12px; cursor:pointer; color:var(--accent-blue); text-align:center;" id="toggle-auth">アカウントを作成する</p>
+            <p style="font-size:12px; cursor:pointer; color:var(--accent-blue);" id="toggle-auth">新規登録はこちら</p>
         </div>
-    </div>
-
-    <div id="ban-screen">
-        <h1 style="color:var(--accent-red);">🚫 BAN中</h1>
-        <div id="ban-info" style="color:white; margin:20px;"></div>
     </div>
 
     <aside class="sidebar">
         <header>Show-Chat</header>
-        <div class="channel-list">
-            <div class="section-label">チャンネル</div>
-            <div class="channel-item active" onclick="switchRoom('メイン')">メイン</div>
-            <div class="channel-item" onclick="switchRoom('サブ')">サブ</div>
-            <div class="channel-item" onclick="switchRoom('シークレット')">シークレット</div>
+        <div style="flex:1; padding:10px;">
+            <div style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">チャンネル</div>
+            <div style="padding:8px; background:#4f545c; border-radius:4px;"># メイン</div>
         </div>
         <div style="padding:10px; background:rgba(0,0,0,0.2); display:flex; align-items:center; gap:10px;">
-            <div id="my-avatar" class="avatar" style="width:32px; height:32px; font-size:18px;"></div>
-            <div id="my-name" style="flex:1; font-size:13px; font-weight:bold; overflow:hidden; text-overflow:ellipsis;"></div>
+            <div id="my-avatar" class="avatar" style="width:32px; height:32px; font-size:16px;"></div>
+            <div id="my-name" style="flex:1; font-size:14px; font-weight:bold;"></div>
             <div style="cursor:pointer;" id="open-settings">⚙️</div>
         </div>
     </aside>
 
     <main>
-        <header id="current-room-name"># メイン</header>
+        <header># メイン</header>
         <div id="messages"></div>
-        <div class="typing-indicator" id="typing-box"></div>
         <div class="input-area">
             <div class="input-box"><input type="text" id="chat-input" placeholder="メッセージを送信"></div>
         </div>
     </main>
 
-    <aside class="member-sidebar">
-        <div class="section-label" id="member-count">オンライン - 0</div>
-        <div id="member-list" style="padding:0 10px;"></div>
-    </aside>
-
     <div id="settings-modal">
         <div class="modal-card">
             <h3>設定</h3>
-            <p style="font-size: 11px; color: var(--text-muted);">アイコン（絵文字）を変更:</p>
+            <p style="font-size: 12px; color: var(--text-muted);">アイコン変更:</p>
             <div class="icon-grid" id="settings-icon-grid"></div>
-
-            <div id="admin-panel" style="display:none; border-top:1px solid #444; padding-top:15px; margin-top:15px;">
-                <p style="color:var(--accent-red); font-size:11px; font-weight:bold;">👑 管理パネル</p>
-                <button class="modal-btn" style="background:var(--accent-red);" onclick="adminClearHistory()">履歴全消去</button>
-                <button class="modal-btn" style="background:#faa61a;" id="room-lock-btn" onclick="adminToggleLock()">部屋を停止</button>
-                <button class="modal-btn" style="background:var(--accent-blue);" onclick="adminBanUser()">ユーザーBAN</button>
-                <div id="ban-list-display" style="max-height: 80px; overflow-y: auto; font-size: 11px; background: #202225; padding: 5px; border-radius: 4px; margin-top:5px;"></div>
-            </div>
-            <button class="modal-btn" style="background:#4f545c; margin-top: 15px;" onclick="document.getElementById('settings-modal').style.display='none'">閉じる</button>
+            <button class="modal-btn" style="background:#4f545c; margin-top:10px;" onclick="document.getElementById('settings-modal').style.display='none'">閉じる</button>
         </div>
     </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import { getDatabase, ref, set, push, onValue, serverTimestamp, get, remove, onDisconnect, off } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+    import { getDatabase, ref, set, push, onValue, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCVoT10q21bNe7ks6DrLZWkl0JIJ2cIa0s",
@@ -148,66 +105,54 @@
     const db = getDatabase(app);
 
     let currentUser = null;
-    let currentRoom = 'メイン';
-    let isSignup = false;
-    let selectedEmoji = "";
-    let lastSentTime = 0;
+    let selectedEmoji = "🐱";
+    const emojis = ["🐱", "🐶", "🦊", "🐻", "🐼", "🤖", "👻", "🐯", "🐸", "🐧"];
 
-    // 絵文字アイコンリスト
-    const presetEmojis = ["🐱", "🐶", "🦊", "🐻", "🐼", "🦁", "🐸", "🐨", "🐷", "🤖"];
-
-    function renderIconGrids() {
-        const containers = [document.getElementById('signup-icon-grid'), document.getElementById('settings-icon-grid')];
-        containers.forEach(container => {
-            if(!container) return;
-            container.innerHTML = '';
-            presetEmojis.forEach((emoji, index) => {
-                const item = document.createElement('div');
-                item.className = 'icon-option' + (index === 0 && !selectedEmoji ? ' selected' : '');
-                if (index === 0 && !selectedEmoji) selectedEmoji = emoji;
-                item.innerText = emoji;
-                item.onclick = () => selectIcon(emoji, container);
-                container.appendChild(item);
+    // アイコン選択の作成
+    function initGrids() {
+        [document.getElementById('signup-icon-grid'), document.getElementById('settings-icon-grid')].forEach(grid => {
+            if(!grid) return;
+            emojis.forEach(e => {
+                const div = document.createElement('div');
+                div.className = 'icon-option';
+                div.innerText = e;
+                div.onclick = () => {
+                    selectedEmoji = e;
+                    grid.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
+                    div.classList.add('selected');
+                    if(currentUser) updateIcon(e);
+                };
+                grid.appendChild(div);
             });
         });
     }
-    renderIconGrids();
-
-    function selectIcon(emoji, container) {
-        container.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
-        event.target.classList.add('selected');
-        selectedEmoji = emoji;
-        if(currentUser) updateProfileIcon(emoji);
-    }
+    initGrids();
 
     const btnLogin = document.getElementById('btn-login');
     const toggleAuth = document.getElementById('toggle-auth');
+    let isSignup = false;
 
     toggleAuth.onclick = () => {
         isSignup = !isSignup;
         document.getElementById('signup-only').style.display = isSignup ? 'block' : 'none';
-        document.getElementById('auth-title').innerText = isSignup ? 'アカウント作成' : 'おかえりなさい！';
-        btnLogin.innerText = isSignup ? '作成してログイン' : 'ログイン';
-        toggleAuth.innerText = isSignup ? 'アカウントを作成する' : '既に持っている場合';
+        btnLogin.innerText = isSignup ? '登録' : 'ログイン';
     };
 
     btnLogin.onclick = async () => {
         const name = document.getElementById('auth-user').value.trim();
         const pass = document.getElementById('auth-pass').value.trim();
-        const err = document.getElementById('auth-error');
-        if(!name || !pass) return err.innerText = "全部入力してね";
+        if(!name || !pass) return;
 
         const userRef = ref(db, `users/${name}`);
         const snap = await get(userRef);
 
         if(isSignup) {
-            if(snap.exists()) return err.innerText = "その名前は使われています";
-            const icon = selectedEmoji || presetEmojis[0];
-            const userData = { name, pass, icon, isAdmin: (name === "Show") };
+            if(snap.exists()) return alert("その名前は使われています");
+            const userData = { name, pass, icon: selectedEmoji };
             await set(userRef, userData);
             loginSuccess(userData);
         } else {
-            if(!snap.exists() || snap.val().pass !== pass) return err.innerText = "名おかかパスワードが違うよ";
+            if(!snap.exists() || snap.val().pass !== pass) return alert("名前かパスワードが違います");
             loginSuccess(snap.val());
         }
     };
@@ -217,135 +162,41 @@
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('my-name').innerText = user.name;
         document.getElementById('my-avatar').innerText = user.icon;
-        if(user.isAdmin) document.getElementById('admin-panel').style.display = 'block';
-        initChat();
+        loadMessages();
     }
 
-    async function updateProfileIcon(emoji) {
+    async function updateIcon(emoji) {
         await set(ref(db, `users/${currentUser.name}/icon`), emoji);
-        await set(ref(db, `online/${currentUser.name}/icon`), emoji);
         currentUser.icon = emoji;
         document.getElementById('my-avatar').innerText = emoji;
     }
 
-    function initChat() {
-        onValue(ref(db, `bans/${currentUser.name}`), (snap) => {
-            if(snap.exists() && snap.val().until > Date.now()) {
-                const b = snap.val();
-                document.getElementById('ban-screen').style.display = 'flex';
-                document.getElementById('ban-info').innerHTML = `理由: ${b.reason}<br>期限: ${new Date(b.until).toLocaleString()}`;
-                window.stop();
-            }
-        });
-        const statusRef = ref(db, `online/${currentUser.name}`);
-        set(statusRef, { icon: currentUser.icon, isAdmin: currentUser.isAdmin, last: serverTimestamp() });
-        onDisconnect(statusRef).remove();
-        loadMessages(); loadMembers(); setupTyping(); setupLockCheck();
-    }
-
-    window.switchRoom = (room) => {
-        currentRoom = room;
-        document.getElementById('current-room-name').innerText = `# ${room}`;
-        document.querySelectorAll('.channel-item').forEach(el => el.classList.toggle('active', el.innerText === room));
-        loadMessages(); setupLockCheck();
-    };
-
     function loadMessages() {
-        const mRef = ref(db, `messages/${currentRoom}`);
-        off(mRef);
-        onValue(mRef, (snap) => {
+        onValue(ref(db, 'messages/メイン'), (snap) => {
             const box = document.getElementById('messages');
             box.innerHTML = '';
             snap.forEach(c => {
                 const m = c.val();
-                const time = new Date(m.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                 const div = document.createElement('div');
                 div.className = 'msg-row';
-                div.innerHTML = `
-                    <div class="avatar">${m.icon}</div>
-                    <div class="msg-content">
-                        <div class="msg-header">
-                            <span class="user-name">${m.name}</span>${m.isAdmin ? '<span class="admin-tag">管理者</span>' : ''}
-                            <span class="msg-time">${time}</span>
-                            ${(currentUser.isAdmin || m.name === currentUser.name) ? `<span class="delete-btn" onclick="deleteMsg('${c.key}')">削除</span>` : ''}
-                        </div>
-                        <div class="msg-text">${m.text}</div>
-                    </div>
-                `;
+                div.innerHTML = `<div class="avatar">${m.icon}</div><div><div style="font-weight:bold;font-size:12px;">${m.name}</div><div>${m.text}</div></div>`;
                 box.appendChild(div);
             });
             box.scrollTop = box.scrollHeight;
         });
     }
 
-    window.deleteMsg = (key) => { if(confirm("消す？")) remove(ref(db, `messages/${currentRoom}/${key}`)); };
-
-    document.getElementById('chat-input').onkeydown = async (e) => {
-        if(e.key === 'Enter') {
-            const text = e.target.value.trim();
-            if(!text) return;
-            const now = Date.now();
-            if(!currentUser.isAdmin && now - lastSentTime < 10000) return alert("10秒待ってね");
-            const lock = await get(ref(db, `locks/${currentRoom}`));
-            if(lock.val() && !currentUser.isAdmin) return alert("停止中だよ");
-            push(ref(db, `messages/${currentRoom}`), { name: currentUser.name, text, icon: currentUser.icon, isAdmin: currentUser.isAdmin, time: serverTimestamp() });
-            e.target.value = ''; lastSentTime = now; set(ref(db, `typing/${currentRoom}/${currentUser.name}`), null);
+    document.getElementById('chat-input').onkeydown = (e) => {
+        if(e.key === 'Enter' && e.target.value.trim()) {
+            push(ref(db, 'messages/メイン'), {
+                name: currentUser.name, text: e.target.value, icon: currentUser.icon, time: serverTimestamp()
+            });
+            e.target.value = '';
         }
     };
-
-    function setupTyping() {
-        const input = document.getElementById('chat-input');
-        input.oninput = () => set(ref(db, `typing/${currentRoom}/${currentUser.name}`), input.value ? true : null);
-        onValue(ref(db, `typing/${currentRoom}`), (snap) => {
-            let users = []; snap.forEach(c => { if(c.key !== currentUser.name) users.push(c.key); });
-            document.getElementById('typing-box').innerText = users.length ? `${users.join(', ')} が入力中...` : '';
-        });
-    }
-
-    function loadMembers() {
-        onValue(ref(db, 'online'), (snap) => {
-            const list = document.getElementById('member-list'); list.innerHTML = ''; let count = 0;
-            snap.forEach(c => {
-                count++; const u = c.val();
-                const div = document.createElement('div'); div.style = "display:flex; align-items:center; gap:8px; padding:5px 0;";
-                div.innerHTML = `<div class="avatar" style="width:24px; height:24px; font-size:14px; background:#4f545c;">${u.icon}</div><span style="font-size:13px;">${c.key}</span>${u.isAdmin?'<span class="admin-tag">管理者</span>':''}`;
-                list.appendChild(div);
-            });
-            document.getElementById('member-count').innerText = `オンライン - ${count}`;
-        });
-    }
-
-    window.adminClearHistory = () => { if(confirm("消す？")) remove(ref(db, `messages/${currentRoom}`)); };
-    window.adminToggleLock = async () => { const r = ref(db, `locks/${currentRoom}`); const s = await get(r); set(r, !s.val()); };
-    function setupLockCheck() {
-        onValue(ref(db, `locks/${currentRoom}`), (snap) => {
-            const isL = snap.val(); const input = document.getElementById('chat-input');
-            const btn = document.getElementById('room-lock-btn');
-            if(btn) btn.innerText = isL ? "部屋の停止を解除" : "この部屋を停止する";
-            input.placeholder = isL ? "管理者が停止中" : "メッセージを送信";
-            input.disabled = isL && !currentUser.isAdmin;
-        });
-    }
-    window.adminBanUser = async () => {
-        const target = prompt("誰を？"); if(!target || target === "Show") return;
-        const reason = prompt("理由は？"); const days = prompt("何日間？", "1");
-        const until = Date.now() + (parseInt(days) * 24 * 60 * 60 * 1000);
-        set(ref(db, `bans/${target}`), { reason, until, by: currentUser.name });
-    };
-    window.unbanUser = (t) => { if(confirm("許す？")) remove(ref(db, `bans/${t}`)); };
 
     document.getElementById('open-settings').onclick = () => {
         document.getElementById('settings-modal').style.display = 'flex';
-        if(currentUser.isAdmin) {
-            onValue(ref(db, 'bans'), (snap) => {
-                const list = document.getElementById('ban-list-display'); list.innerHTML = '';
-                snap.forEach(c => {
-                    const d = document.createElement('div'); d.style = "display:flex; justify-content:space-between; margin-bottom:4px;";
-                    d.innerHTML = `<span>${c.key}</span><button onclick="unbanUser('${c.key}')" style="background:var(--accent-green); color:white; border:none; font-size:10px;">解除</button>`;
-                    list.appendChild(d);
-                });
-            });
-        }
     };
 </script>
 </body>

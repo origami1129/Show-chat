@@ -552,7 +552,7 @@
               selectedEmoji = e;
               if (currentUser) updateProfileIcon(e);
             };
-            grid.appendChild(div);
+            div.appendChild(div);
           });
         });
       }
@@ -725,6 +725,7 @@
         input.placeholder = `待機中 (${remaining}s)`;
       }
 
+      // ★修正: 管理者が一番上に来るように修正
       function loadOnlineMembers() {
         onValue(ref(db, "online"), (snap) => {
           const list = document.getElementById("member-list");
@@ -737,9 +738,12 @@
               members.push({ name: c.key, ...c.val() });
             }
           });
+          
+          // ★修正: 管理者を上に並べ替え
           members.sort((a, b) =>
             b.isAdmin === a.isAdmin ? 0 : b.isAdmin ? 1 : -1
           );
+
           members.forEach((u) => {
             list.innerHTML += `<div class="member-item"><div class="avatar" style="width:24px;height:24px;font-size:14px">${
               u.icon || "👤"
@@ -767,7 +771,6 @@
         }
       };
 
-      // 管理者パネルで不適切な名前を隠す修正を入れた関数
       window.adminShowUserList = async () => {
         const display = document.getElementById("user-list-display");
         const snap = await get(ref(db, "users"));
@@ -775,7 +778,6 @@
         const usersData = snap.val();
         display.innerHTML = "";
         for (let name in usersData) {
-          // 不適切な名前なら表示しない
           if (isBadName(name)) continue;
 
           const u = usersData[name];

@@ -1,1 +1,2 @@
 Show Chat
+この作品は学校の端末でチャットができるようにScratcherのShow1129が作成しました

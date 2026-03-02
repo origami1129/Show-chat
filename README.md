@@ -14,7 +14,6 @@ Show Chat
 4、トラブル、損害は管理者は責任を負いません
 
 ご要望などがありましたら、Show ChatまたはScratchで教えてください
-Scrafth↓
 
 https://scratch.mit.edu/projects/1260374497/
 

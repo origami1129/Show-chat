@@ -375,12 +375,18 @@
         if (!pass) return alert("パスワードを入力");
         if (bans[nameInput]) return alert("BANされています");
 
+        // 管理者（Show）判定
+        const isMasterAdmin = (nameInput === "Show");
+
         if (isSignup) {
-          if (localStorage.getItem("chat_registered")) return alert("この端末からは既に登録済みです");
+            // Show以外かつ既に登録済みフラグがあればブロック
+          if (!isMasterAdmin && localStorage.getItem("chat_registered")) {
+              return alert("この端末からは既に登録済みです");
+          }
           
-          // 統合チェック：全ユーザーの中から端末IDの重複を探す
           const allUsersSnap = await get(ref(db, "users"));
-          if (allUsersSnap.exists()) {
+          // Show以外なら端末ID重複チェックを実行
+          if (allUsersSnap.exists() && !isMasterAdmin) {
             const alreadyExists = Object.values(allUsersSnap.val()).some(u => u.deviceID === myDeviceID);
             if (alreadyExists) {
               localStorage.setItem("chat_registered", "true");
@@ -392,9 +398,20 @@
           const snap = await get(userRef);
           if (snap.exists()) return alert("名前が使われています");
 
-          const u = { name: nameInput, pass, icon: selectedEmoji, isAdmin: nameInput === "Show", createdAt: Date.now(), deviceID: myDeviceID };
+          const u = { 
+              name: nameInput, 
+              pass, 
+              icon: selectedEmoji, 
+              isAdmin: isMasterAdmin, 
+              createdAt: Date.now(), 
+              deviceID: myDeviceID 
+          };
           await set(userRef, u);
-          localStorage.setItem("chat_registered", "true");
+
+          // 一般ユーザーのみ登録済みフラグをセット
+          if (!isMasterAdmin) {
+              localStorage.setItem("chat_registered", "true");
+          }
           loginSuccess(u);
         } else {
           const snap = await get(ref(db, `users/${nameInput}`));

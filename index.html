@@ -216,15 +216,21 @@
         cursor: pointer;
         font-weight: bold;
       }
-      .user-list-item {
-        background: #202225;
+      .admin-sub-box {
+        background: rgba(0,0,0,0.2);
         padding: 10px;
         border-radius: 4px;
-        margin-top: 6px;
+        margin-top: 10px;
         font-size: 12px;
-        border: 1px solid #333;
       }
-      .user-list-main { display: flex; justify-content: space-between; align-items: center; }
+      .room-list-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px 0;
+        border-bottom: 1px solid #444;
+      }
+      .room-list-item:last-child { border: none; }
     </style>
   </head>
   <body>
@@ -289,12 +295,17 @@
         <div id="admin-panel" style="display: none; border-top: 1px solid #444; padding-top: 15px; margin-top: 15px;">
           <p style="color: var(--accent-red); font-size: 11px; font-weight: bold">👑 管理パネル</p>
           <button class="modal-btn" style="background: var(--accent-green)" onclick="adminCreateSecretRoom()">新部屋（秘密）を作成</button>
-          <button class="modal-btn" style="background: #555" onclick="adminDeleteSecretRoom()">秘密の部屋を削除</button>
-          <button class="modal-btn" style="background: var(--accent-red)" onclick="adminClearHistory()">履歴全消去</button>
+          
+          <div class="admin-sub-box">
+            <p style="margin: 0 0 5px 0; font-weight: bold;">秘密の部屋マネージャー</p>
+            <div id="admin-secret-room-list">読み込み中...</div>
+          </div>
+
+          <button class="modal-btn" style="background: var(--accent-red); margin-top: 10px;" onclick="adminClearHistory()">現在の履歴全消去</button>
           <button class="modal-btn" style="background: #faa61a" id="room-lock-btn" onclick="adminToggleLock()">部屋を停止</button>
           <button class="modal-btn" style="background: var(--accent-blue)" onclick="adminBanUser()">ユーザーBAN</button>
           <button class="modal-btn" style="background: #7289da" onclick="adminToggleUserList()">登録ユーザー一覧</button>
-          <div id="user-list-display" style="max-height: 250px; overflow-y: auto; margin-top: 10px; display: none; background: rgba(0, 0, 0, 0.2); border-radius: 4px; padding: 5px;"></div>
+          <div id="user-list-display" style="max-height: 200px; overflow-y: auto; margin-top: 10px; display: none; background: rgba(0, 0, 0, 0.2); border-radius: 4px; padding: 5px;"></div>
         </div>
         <button class="modal-btn" style="background: #4f545c; margin-top: 15px" onclick="closeSettings()">閉じる</button>
       </div>
@@ -406,14 +417,17 @@
         document.getElementById("auth-screen").style.display = "none";
         document.getElementById("my-name").innerText = user.name;
         document.getElementById("my-avatar").innerText = user.icon || "👤";
-        if (user.isAdmin) document.getElementById("admin-panel").style.display = "block";
+        if (user.isAdmin) {
+          document.getElementById("admin-panel").style.display = "block";
+          watchSecretRoomsForAdmin();
+        }
         const statusRef = ref(db, `online/${user.name}`);
         set(statusRef, { icon: user.icon || "👤", isAdmin: !!user.isAdmin, isAFK: false });
         onDisconnect(statusRef).remove();
         loadMessages();
         loadOnlineMembers();
         setupLockCheck();
-        renderCustomRooms();
+        watchSecretRoomsForUser(); // 一般・管理者共通の監視
       }
 
       async function updateProfileIcon(emoji) {
@@ -494,27 +508,63 @@
 
       // --- 秘密の部屋機能 ---
 
+      // [管理者] 部屋の監視（設定画面用）
+      function watchSecretRoomsForAdmin() {
+        onValue(ref(db, "secret_rooms"), snap => {
+          const container = document.getElementById("admin-secret-room-list");
+          if (!snap.exists()) {
+            container.innerHTML = "稼働中の部屋はありません";
+            return;
+          }
+          container.innerHTML = "";
+          snap.forEach(child => {
+            const room = child.val();
+            const div = document.createElement("div");
+            div.className = "room-list-item";
+            div.innerHTML = `
+              <span><b># ${room.name}</b> (コード: <code style="background:#555;padding:2px 4px;border-radius:3px;">${room.code}</code>)</span>
+              <button onclick="adminDeleteSecretRoomDirect('${room.code}', '${room.name}')" style="background:var(--accent-red);border:none;color:white;border-radius:3px;cursor:pointer;font-size:10px;padding:3px 6px;">削除</button>
+            `;
+            container.appendChild(div);
+          });
+        });
+      }
+
+      // [一般・管理者] 自分の参加リストの監視（管理者が消した時に自動で消えるようにする）
+      function watchSecretRoomsForUser() {
+        onValue(ref(db, "secret_rooms"), snap => {
+          const liveRooms = snap.exists() ? snap.val() : {};
+          // Firebaseに存在しないコードを自分のリストからフィルタリング
+          const oldLen = joinedSecretRooms.length;
+          joinedSecretRooms = joinedSecretRooms.filter(r => liveRooms[r.code]);
+          
+          if (joinedSecretRooms.length !== oldLen) {
+            localStorage.setItem("joined_rooms", JSON.stringify(joinedSecretRooms));
+            // もし今消された部屋にいたならロビーに戻す
+            if (currentRoom !== "ロビー" && currentRoom !== "雑談" && currentRoom !== "プロキシ交換") {
+              const stillExists = joinedSecretRooms.some(r => r.name === currentRoom);
+              if (!stillExists) switchRoom("ロビー");
+            }
+          }
+          renderCustomRooms();
+        });
+      }
+
       window.adminCreateSecretRoom = async () => {
         const roomName = prompt("新しい秘密の部屋の名前を入力:");
         if (!roomName || roomName.trim() === "") return;
         const code = Math.random().toString(36).substring(2, 7).toUpperCase();
         const roomInfo = { name: roomName, code: code, createdAt: serverTimestamp() };
         await set(ref(db, `secret_rooms/${code}`), roomInfo);
-        alert(`秘密の部屋「${roomName}」を作成しました！\n入室コード: ${code}\nこのコードを友達に教えてください。`);
         joinRoomEffect(roomName, code);
       };
 
-      window.adminDeleteSecretRoom = async () => {
-        const code = prompt("削除したい部屋の入室コードを入力:");
-        if (!code) return;
-        const snap = await get(ref(db, `secret_rooms/${code}`));
-        if (!snap.exists()) return alert("そのコードの部屋は見つかりません。");
-        const roomName = snap.val().name;
-        if (confirm(`部屋「${roomName}」を完全に削除しますか？\nメッセージ履歴も消えます。`)) {
+      // 設定画面から直接削除する用
+      window.adminDeleteSecretRoomDirect = async (code, name) => {
+        if (confirm(`部屋「${name}」を完全に削除しますか？\n参加者の画面からも即座に消えます。`)) {
           await remove(ref(db, `secret_rooms/${code}`));
-          await remove(ref(db, `messages/${roomName}`));
-          alert("削除しました。");
-          location.reload();
+          await remove(ref(db, `messages/${name}`));
+          await remove(ref(db, `locks/${name}`));
         }
       };
 
@@ -526,7 +576,6 @@
         if (snap.exists()) {
           const roomData = snap.val();
           joinRoomEffect(roomData.name, code);
-          alert(`「# ${roomData.name}」に参加しました。`);
         } else {
           alert("無効なコードです。");
         }
@@ -596,7 +645,7 @@
         }
       };
       window.unbanUser = (name) => { if (confirm(name + "を解除？")) remove(ref(db, `bans/${name}`)); };
-      window.adminClearHistory = () => { if (confirm("全消去？")) remove(ref(db, `messages/${currentRoom}`)); };
+      window.adminClearHistory = () => { if (confirm("現在の部屋の履歴をすべて消去しますか？")) remove(ref(db, `messages/${currentRoom}`)); };
       window.adminToggleLock = async () => {
         const r = ref(db, `locks/${currentRoom}`);
         const s = await get(r);

@@ -102,7 +102,8 @@
         justify-content: space-between;
         align-items: center;
       }
-      .add-room-btn { cursor: pointer; color: var(--text-main); font-size: 14px; }
+      .add-room-btn { cursor: pointer; color: var(--text-main); font-size: 16px; transition: 0.2s; }
+      .add-room-btn:hover { color: white; transform: scale(1.2); }
       .channel-item {
         padding: 8px;
         margin: 2px 0;
@@ -110,8 +111,11 @@
         cursor: pointer;
         display: flex;
         font-size: 14px;
+        align-items: center;
       }
       .channel-item.active { background: #4f545c; color: white; }
+      .leave-room-x { margin-left: auto; opacity: 0.3; font-size: 12px; padding: 2px 5px; }
+      .leave-room-x:hover { opacity: 1; color: var(--accent-red); }
 
       /* メインエリア */
       main { flex: 1; display: flex; flex-direction: column; position: relative; }
@@ -221,24 +225,6 @@
         border: 1px solid #333;
       }
       .user-list-main { display: flex; justify-content: space-between; align-items: center; }
-      .user-list-sub {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        color: var(--text-muted);
-        font-size: 10px;
-        border-top: 1px solid #333;
-        padding-top: 4px;
-        margin-top: 4px;
-      }
-      .unban-btn-small {
-        background: var(--accent-green);
-        border: none;
-        color: white;
-        border-radius: 3px;
-        padding: 2px 6px;
-        cursor: pointer;
-      }
     </style>
   </head>
   <body>
@@ -263,10 +249,10 @@
 
     <aside class="sidebar">
       <header>Show-Chat</header>
-      <div class="channel-list" id="room-list-container">
+      <div class="channel-list">
         <div class="section-label">
           <span>ルーム</span>
-          <span class="add-room-btn" onclick="userJoinRoomByCode()" title="部屋に参加">➕</span>
+          <span class="add-room-btn" onclick="userJoinRoomByCode()" title="コードで参加">➕</span>
         </div>
         <div class="channel-item active" data-room="ロビー" onclick="switchRoom('ロビー')"># ロビー</div>
         <div class="channel-item" data-room="雑談" onclick="switchRoom('雑談')"># 雑談</div>
@@ -303,6 +289,7 @@
         <div id="admin-panel" style="display: none; border-top: 1px solid #444; padding-top: 15px; margin-top: 15px;">
           <p style="color: var(--accent-red); font-size: 11px; font-weight: bold">👑 管理パネル</p>
           <button class="modal-btn" style="background: var(--accent-green)" onclick="adminCreateSecretRoom()">新部屋（秘密）を作成</button>
+          <button class="modal-btn" style="background: #555" onclick="adminDeleteSecretRoom()">秘密の部屋を削除</button>
           <button class="modal-btn" style="background: var(--accent-red)" onclick="adminClearHistory()">履歴全消去</button>
           <button class="modal-btn" style="background: #faa61a" id="room-lock-btn" onclick="adminToggleLock()">部屋を停止</button>
           <button class="modal-btn" style="background: var(--accent-blue)" onclick="adminBanUser()">ユーザーBAN</button>
@@ -442,7 +429,9 @@
         off(ref(db, `messages/${currentRoom}`));
         currentRoom = room;
         document.getElementById("current-room-name").innerText = `# ${room}`;
-        document.querySelectorAll(".channel-item").forEach(el => el.classList.toggle("active", el.getAttribute("data-room") === room));
+        document.querySelectorAll(".channel-item").forEach(el => {
+          el.classList.toggle("active", el.getAttribute("data-room") === room);
+        });
         loadMessages();
         setupLockCheck();
       };
@@ -503,33 +492,43 @@
         });
       }
 
-      // --- 部屋作成・参加機能（今回のメイン） ---
+      // --- 秘密の部屋機能 ---
 
       window.adminCreateSecretRoom = async () => {
         const roomName = prompt("新しい秘密の部屋の名前を入力:");
-        if (!roomName) return;
-        const code = Math.random().toString(36).substring(2, 7).toUpperCase(); // 5文字のランダムコード
+        if (!roomName || roomName.trim() === "") return;
+        const code = Math.random().toString(36).substring(2, 7).toUpperCase();
         const roomInfo = { name: roomName, code: code, createdAt: serverTimestamp() };
-        
         await set(ref(db, `secret_rooms/${code}`), roomInfo);
-        alert(`部屋を作成しました！\n部屋名: ${roomName}\n入室コード: ${code}\n\nこのコードを友達に教えてください。`);
-        
-        // 作成者（管理者）も自動で参加
+        alert(`秘密の部屋「${roomName}」を作成しました！\n入室コード: ${code}\nこのコードを友達に教えてください。`);
         joinRoomEffect(roomName, code);
       };
 
+      window.adminDeleteSecretRoom = async () => {
+        const code = prompt("削除したい部屋の入室コードを入力:");
+        if (!code) return;
+        const snap = await get(ref(db, `secret_rooms/${code}`));
+        if (!snap.exists()) return alert("そのコードの部屋は見つかりません。");
+        const roomName = snap.val().name;
+        if (confirm(`部屋「${roomName}」を完全に削除しますか？\nメッセージ履歴も消えます。`)) {
+          await remove(ref(db, `secret_rooms/${code}`));
+          await remove(ref(db, `messages/${roomName}`));
+          alert("削除しました。");
+          location.reload();
+        }
+      };
+
       window.userJoinRoomByCode = async () => {
-        const codeInput = prompt("入室コードを入力してください:");
+        const codeInput = prompt("入室コードを入力:");
         if (!codeInput) return;
         const code = codeInput.trim().toUpperCase();
-        
         const snap = await get(ref(db, `secret_rooms/${code}`));
         if (snap.exists()) {
           const roomData = snap.val();
           joinRoomEffect(roomData.name, code);
-          alert(`「# ${roomData.name}」に参加しました！`);
+          alert(`「# ${roomData.name}」に参加しました。`);
         } else {
-          alert("コードが正しくないか、部屋が存在しません。");
+          alert("無効なコードです。");
         }
       };
 
@@ -549,13 +548,24 @@
           const div = document.createElement("div");
           div.className = "channel-item";
           div.setAttribute("data-room", r.name);
-          div.innerText = `# ${r.name}`;
-          div.onclick = () => switchRoom(r.name);
+          div.innerHTML = `<span># ${r.name}</span><span class="leave-room-x" onclick="leaveRoom('${r.code}', event)">×</span>`;
+          div.onclick = (e) => { if(!e.target.classList.contains('leave-room-x')) switchRoom(r.name); };
           area.appendChild(div);
         });
       }
 
+      window.leaveRoom = (code, event) => {
+        event.stopPropagation();
+        if (confirm("この部屋をリストから消しますか？")) {
+          joinedSecretRooms = joinedSecretRooms.filter(r => r.code !== code);
+          localStorage.setItem("joined_rooms", JSON.stringify(joinedSecretRooms));
+          renderCustomRooms();
+          switchRoom('ロビー');
+        }
+      };
+
       // --- 管理機能 ---
+
       window.adminToggleUserList = () => {
         const d = document.getElementById("user-list-display");
         if (d.style.display === "none") { d.style.display = "block"; adminShowUserList(); userListInterval = setInterval(adminShowUserList, 5000); }
@@ -570,20 +580,10 @@
         display.innerHTML = "";
         for (let name in users) {
           const u = users[name];
-          let dateStr = "不明";
-          if (u.createdAt) {
-            const d = new Date(u.createdAt);
-            dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
-          }
           const isBanned = bans && bans[name];
           const div = document.createElement("div");
           div.className = "user-list-item";
-          div.innerHTML = `<div class="user-list-main"><div>${u.icon} <b>${name}</b> ${u.isAdmin ? "👑" : ""} ${isBanned ? '<span style="color:red">[BAN]</span>' : ""}</div>${isBanned ? `<button class="unban-btn-small" onclick="unbanUser('${name}')">解除</button>` : ""}</div>
-          <div class="user-list-sub">
-            <span style="color:#5865f2">ID: ${u.deviceID || "不明"}</span>
-            <span style="color:#3ba55d">登録: ${dateStr}</span>
-            <span>PASS: ${u.isAdmin ? "****" : u.pass}</span>
-          </div>`;
+          div.innerHTML = `<div class="user-list-main"><div>${u.icon} <b>${name}</b> ${u.isAdmin ? "👑" : ""} ${isBanned ? '<span style="color:red">[BAN]</span>' : ""}</div>${isBanned ? `<button onclick="unbanUser('${name}')">解除</button>` : ""}</div><div style="font-size:10px;color:#777">ID: ${u.deviceID || "不明"} / PASS: ${u.isAdmin ? "***" : u.pass}</div>`;
           display.appendChild(div);
         }
       };

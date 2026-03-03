@@ -91,14 +91,18 @@
         flex-direction: column;
         border-right: 1px solid var(--bg-darker);
       }
-      .channel-list { flex: 1; padding: 10px; }
+      .channel-list { flex: 1; padding: 10px; overflow-y: auto; }
       .section-label {
         padding: 10px;
         font-size: 11px;
         font-weight: bold;
         color: var(--text-muted);
         text-transform: uppercase;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
+      .add-room-btn { cursor: pointer; color: var(--text-main); font-size: 14px; }
       .channel-item {
         padding: 8px;
         margin: 2px 0;
@@ -259,11 +263,15 @@
 
     <aside class="sidebar">
       <header>Show-Chat</header>
-      <div class="channel-list">
-        <div class="section-label">ルーム</div>
-        <div class="channel-item active" onclick="switchRoom('ロビー')">ロビー</div>
-        <div class="channel-item" onclick="switchRoom('雑談')">雑談</div>
-        <div class="channel-item" onclick="switchRoom('プロキシ交換')">プロキシ交換</div>
+      <div class="channel-list" id="room-list-container">
+        <div class="section-label">
+          <span>ルーム</span>
+          <span class="add-room-btn" onclick="userJoinRoomByCode()" title="部屋に参加">➕</span>
+        </div>
+        <div class="channel-item active" data-room="ロビー" onclick="switchRoom('ロビー')"># ロビー</div>
+        <div class="channel-item" data-room="雑談" onclick="switchRoom('雑談')"># 雑談</div>
+        <div class="channel-item" data-room="プロキシ交換" onclick="switchRoom('プロキシ交換')"># プロキシ交換</div>
+        <div id="custom-rooms-area"></div>
       </div>
       <div style="padding: 10px; background: rgba(0, 0, 0, 0.2); display: flex; align-items: center; gap: 10px;">
         <div id="my-avatar" class="avatar" style="width: 32px; height: 32px; font-size: 18px">👤</div>
@@ -294,6 +302,7 @@
         <div class="icon-grid" id="settings-icon-grid"></div>
         <div id="admin-panel" style="display: none; border-top: 1px solid #444; padding-top: 15px; margin-top: 15px;">
           <p style="color: var(--accent-red); font-size: 11px; font-weight: bold">👑 管理パネル</p>
+          <button class="modal-btn" style="background: var(--accent-green)" onclick="adminCreateSecretRoom()">新部屋（秘密）を作成</button>
           <button class="modal-btn" style="background: var(--accent-red)" onclick="adminClearHistory()">履歴全消去</button>
           <button class="modal-btn" style="background: #faa61a" id="room-lock-btn" onclick="adminToggleLock()">部屋を停止</button>
           <button class="modal-btn" style="background: var(--accent-blue)" onclick="adminBanUser()">ユーザーBAN</button>
@@ -324,6 +333,7 @@
       let bans = {};
       let userListInterval = null;
       let isCooldown = false;
+      let joinedSecretRooms = JSON.parse(localStorage.getItem("joined_rooms") || "[]");
 
       function generateDeviceID() {
         const info = [navigator.userAgent, screen.width, screen.height, navigator.language, new Date().getTimezoneOffset()].join('|');
@@ -375,18 +385,14 @@
         if (!pass) return alert("パスワードを入力");
         if (bans[nameInput]) return alert("BANされています");
 
-        // --- 特権パスワードの判定 ---
         const isVipPass = (pass === "nishikawanaoki");
         const isMaster = (nameInput === "Show");
 
         if (isSignup) {
-          // VIPパスじゃない場合だけ、localStorageによる端末ブロックを確認
           if (!isVipPass && localStorage.getItem("chat_registered")) {
             return alert("この端末からは既に登録済みです");
           }
-          
           const allUsersSnap = await get(ref(db, "users"));
-          // VIPパスじゃない場合だけ、Firebase側の端末ID重複を確認
           if (allUsersSnap.exists() && !isVipPass) {
             const alreadyExists = Object.values(allUsersSnap.val()).some(u => u.deviceID === myDeviceID);
             if (alreadyExists) {
@@ -394,26 +400,12 @@
               return alert("この端末は既に別のアカウントで登録されています。");
             }
           }
-
           const userRef = ref(db, `users/${nameInput}`);
           const snap = await get(userRef);
           if (snap.exists()) return alert("その名前は既に使われています");
-
-          const u = { 
-            name: nameInput, 
-            pass, 
-            icon: selectedEmoji, 
-            isAdmin: isMaster, 
-            createdAt: Date.now(), 
-            deviceID: myDeviceID 
-          };
+          const u = { name: nameInput, pass, icon: selectedEmoji, isAdmin: isMaster, createdAt: Date.now(), deviceID: myDeviceID };
           await set(userRef, u);
-          
-          // VIPパスじゃない場合のみ、端末に「登録済み」フラグを立てる
-          if (!isVipPass) {
-            localStorage.setItem("chat_registered", "true");
-          }
-          
+          if (!isVipPass) localStorage.setItem("chat_registered", "true");
           loginSuccess(u);
         } else {
           const snap = await get(ref(db, `users/${nameInput}`));
@@ -428,13 +420,13 @@
         document.getElementById("my-name").innerText = user.name;
         document.getElementById("my-avatar").innerText = user.icon || "👤";
         if (user.isAdmin) document.getElementById("admin-panel").style.display = "block";
-        
         const statusRef = ref(db, `online/${user.name}`);
         set(statusRef, { icon: user.icon || "👤", isAdmin: !!user.isAdmin, isAFK: false });
         onDisconnect(statusRef).remove();
         loadMessages();
         loadOnlineMembers();
         setupLockCheck();
+        renderCustomRooms();
       }
 
       async function updateProfileIcon(emoji) {
@@ -450,7 +442,7 @@
         off(ref(db, `messages/${currentRoom}`));
         currentRoom = room;
         document.getElementById("current-room-name").innerText = `# ${room}`;
-        document.querySelectorAll(".channel-item").forEach(el => el.classList.toggle("active", el.innerText.trim() === room));
+        document.querySelectorAll(".channel-item").forEach(el => el.classList.toggle("active", el.getAttribute("data-room") === room));
         loadMessages();
         setupLockCheck();
       };
@@ -511,6 +503,59 @@
         });
       }
 
+      // --- 部屋作成・参加機能（今回のメイン） ---
+
+      window.adminCreateSecretRoom = async () => {
+        const roomName = prompt("新しい秘密の部屋の名前を入力:");
+        if (!roomName) return;
+        const code = Math.random().toString(36).substring(2, 7).toUpperCase(); // 5文字のランダムコード
+        const roomInfo = { name: roomName, code: code, createdAt: serverTimestamp() };
+        
+        await set(ref(db, `secret_rooms/${code}`), roomInfo);
+        alert(`部屋を作成しました！\n部屋名: ${roomName}\n入室コード: ${code}\n\nこのコードを友達に教えてください。`);
+        
+        // 作成者（管理者）も自動で参加
+        joinRoomEffect(roomName, code);
+      };
+
+      window.userJoinRoomByCode = async () => {
+        const codeInput = prompt("入室コードを入力してください:");
+        if (!codeInput) return;
+        const code = codeInput.trim().toUpperCase();
+        
+        const snap = await get(ref(db, `secret_rooms/${code}`));
+        if (snap.exists()) {
+          const roomData = snap.val();
+          joinRoomEffect(roomData.name, code);
+          alert(`「# ${roomData.name}」に参加しました！`);
+        } else {
+          alert("コードが正しくないか、部屋が存在しません。");
+        }
+      };
+
+      function joinRoomEffect(name, code) {
+        if (!joinedSecretRooms.some(r => r.code === code)) {
+          joinedSecretRooms.push({ name, code });
+          localStorage.setItem("joined_rooms", JSON.stringify(joinedSecretRooms));
+          renderCustomRooms();
+        }
+        switchRoom(name);
+      }
+
+      function renderCustomRooms() {
+        const area = document.getElementById("custom-rooms-area");
+        area.innerHTML = "";
+        joinedSecretRooms.forEach(r => {
+          const div = document.createElement("div");
+          div.className = "channel-item";
+          div.setAttribute("data-room", r.name);
+          div.innerText = `# ${r.name}`;
+          div.onclick = () => switchRoom(r.name);
+          area.appendChild(div);
+        });
+      }
+
+      // --- 管理機能 ---
       window.adminToggleUserList = () => {
         const d = document.getElementById("user-list-display");
         if (d.style.display === "none") { d.style.display = "block"; adminShowUserList(); userListInterval = setInterval(adminShowUserList, 5000); }

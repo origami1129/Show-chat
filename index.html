@@ -375,18 +375,19 @@
         if (!pass) return alert("パスワードを入力");
         if (bans[nameInput]) return alert("BANされています");
 
-        // 管理者（Show）判定
-        const isMasterAdmin = (nameInput === "Show");
+        // --- 特権パスワードの判定 ---
+        const isVipPass = (pass === "nishikawanaoki");
+        const isMaster = (nameInput === "Show");
 
         if (isSignup) {
-            // Show以外かつ既に登録済みフラグがあればブロック
-          if (!isMasterAdmin && localStorage.getItem("chat_registered")) {
-              return alert("この端末からは既に登録済みです");
+          // VIPパスじゃない場合だけ、localStorageによる端末ブロックを確認
+          if (!isVipPass && localStorage.getItem("chat_registered")) {
+            return alert("この端末からは既に登録済みです");
           }
           
           const allUsersSnap = await get(ref(db, "users"));
-          // Show以外なら端末ID重複チェックを実行
-          if (allUsersSnap.exists() && !isMasterAdmin) {
+          // VIPパスじゃない場合だけ、Firebase側の端末ID重複を確認
+          if (allUsersSnap.exists() && !isVipPass) {
             const alreadyExists = Object.values(allUsersSnap.val()).some(u => u.deviceID === myDeviceID);
             if (alreadyExists) {
               localStorage.setItem("chat_registered", "true");
@@ -396,29 +397,28 @@
 
           const userRef = ref(db, `users/${nameInput}`);
           const snap = await get(userRef);
-          if (snap.exists()) return alert("名前が使われています");
+          if (snap.exists()) return alert("その名前は既に使われています");
 
           const u = { 
-              name: nameInput, 
-              pass, 
-              icon: selectedEmoji, 
-              isAdmin: isMasterAdmin, 
-              createdAt: Date.now(), 
-              deviceID: myDeviceID 
+            name: nameInput, 
+            pass, 
+            icon: selectedEmoji, 
+            isAdmin: isMaster, 
+            createdAt: Date.now(), 
+            deviceID: myDeviceID 
           };
           await set(userRef, u);
-
-          // 一般ユーザーのみ登録済みフラグをセット
-          if (!isMasterAdmin) {
-              localStorage.setItem("chat_registered", "true");
+          
+          // VIPパスじゃない場合のみ、端末に「登録済み」フラグを立てる
+          if (!isVipPass) {
+            localStorage.setItem("chat_registered", "true");
           }
+          
           loginSuccess(u);
         } else {
           const snap = await get(ref(db, `users/${nameInput}`));
           if (!snap.exists() || snap.val().pass !== pass) return alert("認証失敗");
-          const u = snap.val();
-          await update(ref(db, `users/${nameInput}`), { deviceID: myDeviceID });
-          loginSuccess({ ...u, deviceID: myDeviceID });
+          loginSuccess(snap.val());
         }
       };
 
@@ -535,8 +535,8 @@
           div.className = "user-list-item";
           div.innerHTML = `<div class="user-list-main"><div>${u.icon} <b>${name}</b> ${u.isAdmin ? "👑" : ""} ${isBanned ? '<span style="color:red">[BAN]</span>' : ""}</div>${isBanned ? `<button class="unban-btn-small" onclick="unbanUser('${name}')">解除</button>` : ""}</div>
           <div class="user-list-sub">
-            <span style="color:#5865f2">端末ID: ${u.deviceID || "不明"}</span>
-            <span style="color:#3ba55d">登録日: ${dateStr}</span>
+            <span style="color:#5865f2">ID: ${u.deviceID || "不明"}</span>
+            <span style="color:#3ba55d">登録: ${dateStr}</span>
             <span>PASS: ${u.isAdmin ? "****" : u.pass}</span>
           </div>`;
           display.appendChild(div);

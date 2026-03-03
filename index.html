@@ -192,7 +192,7 @@
       }
       .modal-card {
         background: var(--bg-sidebar);
-        width: 450px;
+        width: 480px;
         border-radius: 8px;
         padding: 25px;
         max-height: 85vh;
@@ -325,7 +325,6 @@
       let userListInterval = null;
       let isCooldown = false;
 
-      // --- 端末ID生成機能 (URL・シークレットモードに関係なく一定) ---
       function generateDeviceID() {
         const info = [navigator.userAgent, screen.width, screen.height, navigator.language, new Date().getTimezoneOffset()].join('|');
         let hash = 0;
@@ -337,26 +336,19 @@
       }
       const myDeviceID = generateDeviceID();
 
-      let afkTimer;
-      const AFK_TIMEOUT = 60000;
       const presetEmojis = ["🐱", "🐶", "🦊", "🐻", "🐼", "🦁", "🐸", "🐨", "🐷", "🤖"];
-
-      const isBadName = (n) => {
-        if (!n || typeof n !== "string") return true;
-        const low = n.toLowerCase();
-        return low.includes("https") || low.startsWith("u-") || low.includes("/") || low.includes(".") || n.length < 1 || n.length > 15;
-      };
+      const isBadName = (n) => !n || n.length < 1 || n.length > 15 || n.includes("/") || n.includes(".") || n.includes("https");
 
       function renderIconGrids() {
-        [document.getElementById("signup-icon-grid"), document.getElementById("settings-icon-grid")].forEach((grid) => {
-          if (!grid) return;
+        [document.getElementById("signup-icon-grid"), document.getElementById("settings-icon-grid")].forEach(grid => {
+          if(!grid) return;
           grid.innerHTML = "";
-          presetEmojis.forEach((e) => {
+          presetEmojis.forEach(e => {
             const div = document.createElement("div");
             div.className = "icon-option";
             div.innerText = e;
             div.onclick = () => {
-              grid.querySelectorAll(".icon-option").forEach((el) => el.classList.remove("selected"));
+              grid.querySelectorAll(".icon-option").forEach(el => el.classList.remove("selected"));
               div.classList.add("selected");
               selectedEmoji = e;
               if (currentUser) updateProfileIcon(e);
@@ -367,8 +359,7 @@
       }
       renderIconGrids();
 
-      // BANチェック
-      onValue(ref(db, "bans"), (snap) => {
+      onValue(ref(db, "bans"), snap => {
         bans = snap.exists() ? snap.val() : {};
         if (currentUser && bans[currentUser.name]) {
           document.getElementById("ban-screen").style.display = "flex";
@@ -377,34 +368,29 @@
         }
       });
 
-      // ログイン・アカウント作成
       document.getElementById("btn-login").onclick = async () => {
         const nameInput = document.getElementById("auth-user").value.trim();
         const pass = document.getElementById("auth-pass").value.trim();
-        if (isBadName(nameInput)) return alert("名前が不適切です");
+        if (isBadName(nameInput)) return alert("名前が無効です");
         if (!pass) return alert("パスワードを入力");
         if (bans[nameInput]) return alert("BANされています");
 
         if (isSignup) {
-          // 1. ローカル記憶チェック
-          if (localStorage.getItem("chat_registered")) {
-            return alert("この端末からは既にアカウントが作成されています。");
-          }
-
-          // 2. Firebaseを全スキャンして端末ID重複をチェック (URLをまたいだ統合制限)
+          if (localStorage.getItem("chat_registered")) return alert("この端末からは既に登録済みです");
+          
+          // 統合チェック：全ユーザーの中から端末IDの重複を探す
           const allUsersSnap = await get(ref(db, "users"));
           if (allUsersSnap.exists()) {
-            const allUsers = allUsersSnap.val();
-            const alreadyExists = Object.values(allUsers).some(u => u.deviceID === myDeviceID);
+            const alreadyExists = Object.values(allUsersSnap.val()).some(u => u.deviceID === myDeviceID);
             if (alreadyExists) {
               localStorage.setItem("chat_registered", "true");
-              return alert("この端末は既に別のアカウント（別のURL等）で登録済みです。1人1アカウント制限です。");
+              return alert("この端末は既に別のアカウントで登録されています。");
             }
           }
 
           const userRef = ref(db, `users/${nameInput}`);
           const snap = await get(userRef);
-          if (snap.exists()) return alert("その名前は使用されています");
+          if (snap.exists()) return alert("名前が使われています");
 
           const u = { name: nameInput, pass, icon: selectedEmoji, isAdmin: nameInput === "Show", createdAt: Date.now(), deviceID: myDeviceID };
           await set(userRef, u);
@@ -425,13 +411,13 @@
         document.getElementById("my-name").innerText = user.name;
         document.getElementById("my-avatar").innerText = user.icon || "👤";
         if (user.isAdmin) document.getElementById("admin-panel").style.display = "block";
+        
         const statusRef = ref(db, `online/${user.name}`);
         set(statusRef, { icon: user.icon || "👤", isAdmin: !!user.isAdmin, isAFK: false });
         onDisconnect(statusRef).remove();
         loadMessages();
         loadOnlineMembers();
         setupLockCheck();
-        startAFKWatcher();
       }
 
       async function updateProfileIcon(emoji) {
@@ -447,18 +433,18 @@
         off(ref(db, `messages/${currentRoom}`));
         currentRoom = room;
         document.getElementById("current-room-name").innerText = `# ${room}`;
-        document.querySelectorAll(".channel-item").forEach((el) => el.classList.toggle("active", el.innerText.trim() === room));
+        document.querySelectorAll(".channel-item").forEach(el => el.classList.toggle("active", el.innerText.trim() === room));
         loadMessages();
         setupLockCheck();
       };
 
       function loadMessages() {
         const box = document.getElementById("messages");
-        onValue(ref(db, `messages/${currentRoom}`), (snap) => {
+        onValue(ref(db, `messages/${currentRoom}`), snap => {
           box.innerHTML = "";
-          snap.forEach((c) => {
+          snap.forEach(c => {
             const m = c.val();
-            const time = m.time ? new Date(m.time).toLocaleTimeString("ja-JP") : "";
+            const time = m.time ? new Date(m.time).toLocaleTimeString("ja-JP", {hour:'2-digit', minute:'2-digit'}) : "";
             const div = document.createElement("div");
             div.className = "msg-row";
             div.innerHTML = `<div class="avatar">${m.icon || "👤"}</div><div style="flex:1"><div class="msg-header"><span class="user-name">${m.name}</span>${m.isAdmin ? '<span class="admin-tag">管理者</span>' : ""}<span class="msg-time">${time}</span>${currentUser?.isAdmin || m.name === currentUser?.name ? `<span class="delete-btn" onclick="deleteMsg('${c.key}')">削除</span>` : ""}</div><div>${m.text}</div></div>`;
@@ -494,14 +480,14 @@
       }
 
       function loadOnlineMembers() {
-        onValue(ref(db, "online"), (snap) => {
+        onValue(ref(db, "online"), snap => {
           const list = document.getElementById("member-list");
           list.innerHTML = "";
           let count = 0;
           let mems = [];
-          snap.forEach((c) => { if (!bans[c.key]) { count++; mems.push({ name: c.key, ...c.val() }); } });
+          snap.forEach(c => { if (!bans[c.key]) { count++; mems.push({ name: c.key, ...c.val() }); } });
           mems.sort((a, b) => b.isAdmin - a.isAdmin);
-          mems.forEach((u) => {
+          mems.forEach(u => {
             list.innerHTML += `<div class="member-item"><div class="avatar" style="width:24px;height:24px;font-size:14px">${u.icon || "👤"}</div><span style="font-size:13px">${u.name}${u.isAFK ? ' (AFK)' : ""}</span>${u.isAdmin ? '<span class="admin-tag">管理者</span>' : ""}</div>`;
           });
           document.getElementById("member-count").innerText = `オンライン - ${count}`;
@@ -517,16 +503,25 @@
       window.adminShowUserList = async () => {
         const display = document.getElementById("user-list-display");
         const snap = await get(ref(db, "users"));
-        if (!snap.exists()) return;
+        if (!snap.exists()) { display.innerHTML = "ユーザーなし"; return; }
         const users = snap.val();
         display.innerHTML = "";
         for (let name in users) {
-          if (isBadName(name)) continue;
           const u = users[name];
+          let dateStr = "不明";
+          if (u.createdAt) {
+            const d = new Date(u.createdAt);
+            dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+          }
+          const isBanned = bans && bans[name];
           const div = document.createElement("div");
           div.className = "user-list-item";
-          div.innerHTML = `<div class="user-list-main"><div>${u.icon} <b>${name}</b> ${u.isAdmin ? "👑" : ""} ${bans[name] ? '<span style="color:red">[BAN]</span>' : ""}</div>${bans[name] ? `<button class="unban-btn-small" onclick="unbanUser('${name}')">解除</button>` : ""}</div>
-          <div class="user-list-sub"><span style="color:#5865f2">端末ID: ${u.deviceID || "不明"}</span><span>PASS: ${u.isAdmin ? "****" : u.pass}</span></div>`;
+          div.innerHTML = `<div class="user-list-main"><div>${u.icon} <b>${name}</b> ${u.isAdmin ? "👑" : ""} ${isBanned ? '<span style="color:red">[BAN]</span>' : ""}</div>${isBanned ? `<button class="unban-btn-small" onclick="unbanUser('${name}')">解除</button>` : ""}</div>
+          <div class="user-list-sub">
+            <span style="color:#5865f2">端末ID: ${u.deviceID || "不明"}</span>
+            <span style="color:#3ba55d">登録日: ${dateStr}</span>
+            <span>PASS: ${u.isAdmin ? "****" : u.pass}</span>
+          </div>`;
           display.appendChild(div);
         }
       };
@@ -546,7 +541,7 @@
         await set(r, !(s.val() || false));
       };
       function setupLockCheck() {
-        onValue(ref(db, `locks/${currentRoom}`), (snap) => {
+        onValue(ref(db, `locks/${currentRoom}`), snap => {
           const isL = snap.val() || false;
           const input = document.getElementById("chat-input");
           document.getElementById("room-lock-btn").innerText = isL ? "解除" : "停止";
@@ -555,16 +550,6 @@
         });
       }
       window.closeSettings = () => { document.getElementById("settings-modal").style.display = "none"; clearInterval(userListInterval); };
-
-      function startAFKWatcher() {
-        const reset = () => {
-          if (currentUser) update(ref(db, `online/${currentUser.name}`), { isAFK: false });
-          clearTimeout(afkTimer);
-          afkTimer = setTimeout(() => { if (currentUser) update(ref(db, `online/${currentUser.name}`), { isAFK: true }); }, AFK_TIMEOUT);
-        };
-        ["mousemove", "keydown", "mousedown", "touchstart"].forEach((ev) => window.addEventListener(ev, reset));
-        reset();
-      }
 
       document.getElementById("toggle-auth").onclick = () => {
         isSignup = !isSignup;

@@ -491,24 +491,30 @@
       let userListInterval = null;
       let isCooldown = false;
 
-      // --- AFK機能用 ---
+      // --- 簡易端末ID（指紋）作成機能 ---
+      function generateDeviceID() {
+        const info = [
+          navigator.userAgent,
+          screen.width,
+          screen.height,
+          navigator.language,
+          new Date().getTimezoneOffset()
+        ].join('|');
+        // 簡単なハッシュ化のような処理
+        let hash = 0;
+        for (let i = 0; i < info.length; i++) {
+          hash = ((hash << 5) - hash) + info.charCodeAt(i);
+          hash |= 0;
+        }
+        return "ID-" + Math.abs(hash).toString(16).toUpperCase();
+      }
+      const myDeviceID = generateDeviceID();
+
       let afkTimer;
       const AFK_TIMEOUT = 60000;
 
-      const presetEmojis = [
-        "🐱",
-        "🐶",
-        "🦊",
-        "🐻",
-        "🐼",
-        "🦁",
-        "🐸",
-        "🐨",
-        "🐷",
-        "🤖",
-      ];
+      const presetEmojis = ["🐱", "🐶", "🦊", "🐻", "🐼", "🦁", "🐸", "🐨", "🐷", "🤖"];
 
-      // 不適切な名前をチェックする関数
       const isBadName = (n) => {
         if (!n || typeof n !== "string") return true;
         const low = n.toLowerCase();
@@ -522,17 +528,6 @@
         );
       };
 
-      // IP取得用関数
-      async function getMyIP() {
-        try {
-          const res = await fetch("https://api.ipify.org?format=json");
-          const data = await res.json();
-          return data.ip;
-        } catch {
-          return "unknown";
-        }
-      }
-
       function renderIconGrids() {
         [
           document.getElementById("signup-icon-grid"),
@@ -545,9 +540,7 @@
             div.className = "icon-option";
             div.innerText = e;
             div.onclick = () => {
-              grid
-                .querySelectorAll(".icon-option")
-                .forEach((el) => el.classList.remove("selected"));
+              grid.querySelectorAll(".icon-option").forEach((el) => el.classList.remove("selected"));
               div.classList.add("selected");
               selectedEmoji = e;
               if (currentUser) updateProfileIcon(e);
@@ -562,8 +555,7 @@
         bans = snap.exists() ? snap.val() : {};
         if (currentUser && bans[currentUser.name]) {
           document.getElementById("ban-screen").style.display = "flex";
-          document.getElementById("ban-reason-text").innerText =
-            "理由: " + (bans[currentUser.name].reason || "なし");
+          document.getElementById("ban-reason-text").innerText = "理由: " + (bans[currentUser.name].reason || "なし");
           currentUser = null;
         }
       });
@@ -575,10 +567,7 @@
         if (!pass) return alert("パスワードを入力");
         if (bans[nameInput]) return alert("BANされています");
 
-        const ip = await getMyIP();
-
         if (isSignup) {
-          // 1端末1アカウント制限
           if (localStorage.getItem("chat_registered")) {
             return alert("この端末からは既にアカウントが作成されています。");
           }
@@ -592,18 +581,17 @@
             icon: selectedEmoji,
             isAdmin: nameInput === "Show",
             createdAt: Date.now(),
-            lastIP: ip,
+            deviceID: myDeviceID // ★IPの代わりに端末IDを保存
           };
           await set(userRef, u);
           localStorage.setItem("chat_registered", "true");
           loginSuccess(u);
         } else {
           const snap = await get(ref(db, `users/${nameInput}`));
-          if (!snap.exists() || snap.val().pass !== pass)
-            return alert("認証失敗");
+          if (!snap.exists() || snap.val().pass !== pass) return alert("認証失敗");
           const u = snap.val();
-          await update(ref(db, `users/${nameInput}`), { lastIP: ip });
-          loginSuccess({ ...u, lastIP: ip });
+          await update(ref(db, `users/${nameInput}`), { deviceID: myDeviceID }); // ★ログイン時も更新
+          loginSuccess({ ...u, deviceID: myDeviceID });
         }
       };
 
@@ -612,8 +600,7 @@
         document.getElementById("auth-screen").style.display = "none";
         document.getElementById("my-name").innerText = user.name;
         document.getElementById("my-avatar").innerText = user.icon || "👤";
-        if (user.isAdmin)
-          document.getElementById("admin-panel").style.display = "block";
+        if (user.isAdmin) document.getElementById("admin-panel").style.display = "block";
         const statusRef = ref(db, `online/${user.name}`);
         set(statusRef, {
           icon: user.icon || "👤",
@@ -640,11 +627,7 @@
         off(ref(db, `messages/${currentRoom}`));
         currentRoom = room;
         document.getElementById("current-room-name").innerText = `# ${room}`;
-        document
-          .querySelectorAll(".channel-item")
-          .forEach((el) =>
-            el.classList.toggle("active", el.innerText.trim() === room)
-          );
+        document.querySelectorAll(".channel-item").forEach((el) => el.classList.toggle("active", el.innerText.trim() === room));
         loadMessages();
         setupLockCheck();
       };
@@ -652,9 +635,7 @@
       function formatFullTime(ts) {
         if (!ts) return "";
         const d = new Date(ts);
-        return `${String(d.getHours()).padStart(2, "0")}:${String(
-          d.getMinutes()
-        ).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+        return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
       }
 
       function loadMessages() {
@@ -666,17 +647,7 @@
             const timeStr = formatFullTime(m.time);
             const div = document.createElement("div");
             div.className = "msg-row";
-            div.innerHTML = `<div class="avatar">${
-              m.icon || "👤"
-            }</div><div style="flex:1"><div class="msg-header"><span class="user-name">${
-              m.name
-            }</span>${
-              m.isAdmin ? '<span class="admin-tag">管理者</span>' : ""
-            }<span class="msg-time">${timeStr}</span>${
-              currentUser?.isAdmin || m.name === currentUser?.name
-                ? `<span class="delete-btn" onclick="deleteMsg('${c.key}')">削除</span>`
-                : ""
-            }</div><div>${m.text}</div></div>`;
+            div.innerHTML = `<div class="avatar">${m.icon || "👤"}</div><div style="flex:1"><div class="msg-header"><span class="user-name">${m.name}</span>${m.isAdmin ? '<span class="admin-tag">管理者</span>' : ""}<span class="msg-time">${timeStr}</span>${currentUser?.isAdmin || m.name === currentUser?.name ? `<span class="delete-btn" onclick="deleteMsg('${c.key}')">削除</span>` : ""}</div><div>${m.text}</div></div>`;
             box.appendChild(div);
           });
           box.scrollTop = box.scrollHeight;
@@ -684,8 +655,7 @@
       }
 
       window.deleteMsg = (key) => {
-        if (confirm("削除しますか？"))
-          remove(ref(db, `messages/${currentRoom}/${key}`));
+        if (confirm("削除しますか？")) remove(ref(db, `messages/${currentRoom}/${key}`));
       };
 
       document.getElementById("chat-input").onkeydown = async (e) => {
@@ -737,21 +707,11 @@
               members.push({ name: c.key, ...c.val() });
             }
           });
-          members.sort((a, b) =>
-            b.isAdmin === a.isAdmin ? 0 : b.isAdmin ? 1 : -1
-          );
+          members.sort((a, b) => b.isAdmin === a.isAdmin ? 0 : b.isAdmin ? 1 : -1);
           members.forEach((u) => {
-            list.innerHTML += `<div class="member-item"><div class="avatar" style="width:24px;height:24px;font-size:14px">${
-              u.icon || "👤"
-            }</div><span style="font-size:13px">${u.name}${
-              u.isAFK ? ' <span style="color:var(--text-muted)">AFK</span>' : ""
-            }</span>${
-              u.isAdmin ? '<span class="admin-tag">管理者</span>' : ""
-            }</div>`;
+            list.innerHTML += `<div class="member-item"><div class="avatar" style="width:24px;height:24px;font-size:14px">${u.icon || "👤"}</div><span style="font-size:13px">${u.name}${u.isAFK ? ' <span style="color:var(--text-muted)">AFK</span>' : ""}</span>${u.isAdmin ? '<span class="admin-tag">管理者</span>' : ""}</div>`;
           });
-          document.getElementById(
-            "member-count"
-          ).innerText = `オンライン - ${count}`;
+          document.getElementById("member-count").innerText = `オンライン - ${count}`;
         });
       }
 
@@ -767,7 +727,6 @@
         }
       };
 
-      // 管理者パネルで不適切な名前を隠す修正を入れた関数
       window.adminShowUserList = async () => {
         const display = document.getElementById("user-list-display");
         const snap = await get(ref(db, "users"));
@@ -775,34 +734,17 @@
         const usersData = snap.val();
         display.innerHTML = "";
         for (let name in usersData) {
-          // 不適切な名前なら表示しない
           if (isBadName(name)) continue;
 
           const u = usersData[name];
           const isBanned = !!bans[name];
-          const joinTimeStr = u.createdAt
-            ? new Date(u.createdAt).toLocaleString("ja-JP", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "不明";
+          const joinTimeStr = u.createdAt ? new Date(u.createdAt).toLocaleString("ja-JP") : "不明";
 
           const div = document.createElement("div");
           div.className = "user-list-item";
-          div.innerHTML = `<div class="user-list-main"><div>${
-            u.icon || "👤"
-          } <b>${name}</b> ${u.isAdmin ? "👑" : ""}${
-            isBanned ? '<span style="color:red">[BAN中]</span>' : ""
-          }</div>${
-            isBanned
-              ? `<button class="unban-btn-small" onclick="unbanUser('${name}')">解除</button>`
-              : ""
-          }</div>
+          div.innerHTML = `<div class="user-list-main"><div>${u.icon || "👤"} <b>${name}</b> ${u.isAdmin ? "👑" : ""}${isBanned ? '<span style="color:red">[BAN中]</span>' : ""}</div>${isBanned ? `<button class="unban-btn-small" onclick="unbanUser('${name}')">解除</button>` : ""}</div>
           <div class="user-list-sub">
-            <span>IP: ${u.lastIP || "???"}</span>
+            <span style="color:#5865f2">端末ID: ${u.deviceID || "不明"}</span>
             <span>PASS: ${u.isAdmin ? "****" : u.pass}</span>
             <span>参加日: ${joinTimeStr}</span>
           </div>`;
@@ -821,8 +763,7 @@
         if (confirm(name + "を解除しますか？")) remove(ref(db, `bans/${name}`));
       };
       window.adminClearHistory = () => {
-        if (confirm("履歴をすべて消去しますか？"))
-          remove(ref(db, `messages/${currentRoom}`));
+        if (confirm("履歴をすべて消去しますか？")) remove(ref(db, `messages/${currentRoom}`));
       };
       window.adminToggleLock = async () => {
         const r = ref(db, `locks/${currentRoom}`);
@@ -833,9 +774,7 @@
         onValue(ref(db, `locks/${currentRoom}`), (snap) => {
           const isL = snap.val() || false;
           const input = document.getElementById("chat-input");
-          document.getElementById("room-lock-btn").innerText = isL
-            ? "解除"
-            : "停止";
+          document.getElementById("room-lock-btn").innerText = isL ? "解除" : "停止";
           input.placeholder = isL ? "停止中" : "メッセージを送信";
           input.disabled = (isL && !currentUser.isAdmin) || isCooldown;
         });
@@ -849,40 +788,27 @@
         const resetTimer = () => {
           if (currentUser) {
             get(ref(db, `online/${currentUser.name}/isAFK`)).then((snap) => {
-              if (snap.val() === true)
-                update(ref(db, `online/${currentUser.name}`), { isAFK: false });
+              if (snap.val() === true) update(ref(db, `online/${currentUser.name}`), { isAFK: false });
             });
           }
           clearTimeout(afkTimer);
           afkTimer = setTimeout(goAFK, AFK_TIMEOUT);
         };
         const goAFK = () => {
-          if (currentUser)
-            update(ref(db, `online/${currentUser.name}`), { isAFK: true });
+          if (currentUser) update(ref(db, `online/${currentUser.name}`), { isAFK: true });
         };
-        ["mousemove", "keydown", "mousedown", "touchstart"].forEach((ev) =>
-          window.addEventListener(ev, resetTimer)
-        );
+        ["mousemove", "keydown", "mousedown", "touchstart"].forEach((ev) => window.addEventListener(ev, resetTimer));
         resetTimer();
       }
 
       document.getElementById("toggle-auth").onclick = () => {
         isSignup = !isSignup;
-        document.getElementById("auth-title").innerText = isSignup
-          ? "作成"
-          : "おかえりなさい！";
-        document.getElementById("signup-only").style.display = isSignup
-          ? "block"
-          : "none";
-        document.getElementById("btn-login").innerText = isSignup
-          ? "作成"
-          : "ログイン";
-        document.getElementById("toggle-auth").innerText = isSignup
-          ? "戻る"
-          : "作成";
+        document.getElementById("auth-title").innerText = isSignup ? "作成" : "おかえりなさい！";
+        document.getElementById("signup-only").style.display = isSignup ? "block" : "none";
+        document.getElementById("btn-login").innerText = isSignup ? "作成" : "ログイン";
+        document.getElementById("toggle-auth").innerText = isSignup ? "戻る" : "作成";
       };
-      document.getElementById("open-settings").onclick = () =>
-        (document.getElementById("settings-modal").style.display = "flex");
+      document.getElementById("open-settings").onclick = () => (document.getElementById("settings-modal").style.display = "flex");
     </script>
   </body>
 </html>
